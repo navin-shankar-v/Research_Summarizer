@@ -5,6 +5,8 @@ from streamlit_lottie import st_lottie
 import time
 import os
 API_URL = os.getenv("API_URL", "http://localhost:8000")
+api_url = f"{API_URL}/api/summarize"
+
 # Optional: pip install streamlit-lottie
 
 # ------------------- STYLING -------------------
