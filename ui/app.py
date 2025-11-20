@@ -1,17 +1,14 @@
 import streamlit as st
 import requests
-import json
-from streamlit_lottie import st_lottie
-import time
 import os
+
+# Base API URL
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 api_url = f"{API_URL}/api/summarize"
 
-# Optional: pip install streamlit-lottie
-
-# ------------------- STYLING -------------------
 st.set_page_config(page_title="Automated Research Summarization", layout="wide")
 
+# ------------------- STYLING -------------------
 st.markdown("""
     <style>
     body {
@@ -69,41 +66,86 @@ st.markdown('<div class="subtitle">AI-powered summarizer for extracting insights
 # ------------------- INPUTS -------------------
 topic = st.text_input("Enter your topic", placeholder="e.g., Blockchain, Smart Watches, Federated Learning")
 n_papers = st.slider("Number of papers to include", 3, 12, 5)
-api_url = "http://localhost:8000/api/summarize"
 
 # ------------------- SUBMIT -------------------
 if st.button("🚀 Generate Summary") and topic:
     with st.spinner("Gathering papers and generating insights... This may take a minute ⏳"):
         try:
-            resp = requests.post(api_url, json={"query": topic, "n_papers": n_papers, "sources": ["arxiv"]}, timeout=180)
+            resp = requests.post(
+                api_url,
+                json={"query": topic, "n_papers": n_papers, "sources": ["arxiv"]},
+                timeout=180
+            )
+
+            if resp.status_code != 200:
+                st.error(f"Server Error: {resp.text}")
+                st.stop()
+
             data = resp.json()
+            summary = data.get("summary", {}) or {}
+            scores = data.get("eval", {}) or {}
+            papers = data.get("papers", []) or {}
 
             st.success("✅ Summary generated successfully!")
-            summary = data.get("summary", {})
-            
-            # ------------------- OUTPUT CARDS -------------------
-            with st.container():
+
+            # ------------------- TABS -------------------
+            tab_summary, tab_details, tab_papers = st.tabs(
+                ["📘 Summary", "📊 Details & Structure", "📑 Papers"]
+            )
+
+            # ===== TAB: SUMMARY =====
+            with tab_summary:
                 st.markdown('<div class="result-card">', unsafe_allow_html=True)
 
-                # Summary
-                st.markdown('<div class="section-title">📘 Summary</div>', unsafe_allow_html=True)
+                # Evaluation metrics
+                st.markdown('<div class="section-title">📊 Evaluation</div>', unsafe_allow_html=True)
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Overall", f"{scores.get('overall', 0):.2f}")
+                c2.metric("Coverage", f"{scores.get('coverage', 0):.2f}")
+                c3.metric("Depth", f"{scores.get('depth', 0):.2f}")
+                c4.metric("Structure", f"{scores.get('structure', 0):.2f}")
+
+                # Deep paragraphs
+                st.markdown('<div class="section-title">📘 Deep Summary</div>', unsafe_allow_html=True)
                 for p in summary.get("paragraphs", []):
                     st.markdown(f"- {p}")
 
-                # What's New
-                st.markdown('<div class="section-title">🌟 What\'s New</div>', unsafe_allow_html=True)
-                for point in summary.get("whats_new", []):
-                    st.markdown(f"✅ {point}")
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                # Open Problems
-                st.markdown('<div class="section-title">⚙️ Open Problems</div>', unsafe_allow_html=True)
-                for prob in summary.get("open_problems", []):
-                    st.markdown(f"🔍 {prob}")
+            # ===== TAB: DETAILS =====
+            with tab_details:
+                st.markdown('<div class="result-card">', unsafe_allow_html=True)
 
-                # Top 5 Papers
+                mapping = {
+                    "🔎 Key Findings": "key_findings",
+                    "⚠️ Limitations": "limitations",
+                    "🚀 Future Work": "future_work",
+                    "🧪 Methods": "methods",
+                    "✨ What's New": "whats_new",
+                    "🧩 Open Problems": "open_problems",
+                }
+
+                for title, key in mapping.items():
+                    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+                    for item in summary.get(key, []):
+                        st.markdown(f"- {item}")
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # ===== TAB: PAPERS =====
+            with tab_papers:
+                st.markdown('<div class="result-card">', unsafe_allow_html=True)
+
                 st.markdown('<div class="section-title">📑 Top 5 Papers</div>', unsafe_allow_html=True)
                 for paper in summary.get("top5_papers", []):
-                    st.markdown(f"🔗 **[{paper.get('title','Untitled')}]({paper.get('url','#')})**")
+                    st.markdown(f"🔗 **[{paper.get('title')}]({paper.get('url')})**")
+
+                st.markdown('<div class="section-title">📚 Retrieved Papers</div>', unsafe_allow_html=True)
+                for i, p in enumerate(papers, start=1):
+                    st.markdown(f"### [{i}] {p.get('title','Untitled')} ({p.get('year','')})")
+                    st.markdown(f"- Authors: {p.get('authors','N/A')}")
+                    st.markdown(f"- URL: {p.get('url','N/A')}")
+                    st.markdown("---")
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
