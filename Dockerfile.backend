@@ -14,14 +14,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy & install backend dependencies
+# Copy dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source code
+# Copy ALL backend folders
 COPY api ./api
 COPY agents ./agents
 COPY config ./config
+COPY retrieval ./retrieval
+COPY prompts ./prompts
+COPY scripts ./scripts
+COPY models ./models
 
 EXPOSE 8000
 

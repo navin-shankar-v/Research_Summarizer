@@ -1,12 +1,13 @@
 {
   "services": {
     "backend": {
+      "name": "backend",
       "build": {
         "dockerfilePath": "Dockerfile.backend"
       },
       "env": {
-        "OPENAI_API_KEY": "@OPENAI_API_KEY",
         "LLM_PROVIDER": "openai",
+        "OPENAI_API_KEY": "@OPENAI_API_KEY",
         "OPENAI_MODEL": "gpt-4o-mini",
         "OPENAI_BASE_URL": "https://api.openai.com/v1",
         "HOST": "0.0.0.0",
@@ -14,11 +15,12 @@
       }
     },
     "frontend": {
+      "name": "frontend",
       "build": {
         "dockerfilePath": "Dockerfile.frontend"
       },
       "env": {
-        "API_URL": "https://{backend.PUBLIC_URL}"
+        "API_URL": "https://${{ backend.PUBLIC_URL }}"
       }
     }
   }
