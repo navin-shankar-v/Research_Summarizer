@@ -1,9 +1,9 @@
 {
   "services": {
     "backend": {
-      "name": "backend",
+      "source": "backend",
       "build": {
-        "dockerfilePath": "Dockerfile.backend"
+        "dockerfilePath": "backend/Dockerfile"
       },
       "env": {
         "LLM_PROVIDER": "openai",
@@ -15,9 +15,9 @@
       }
     },
     "frontend": {
-      "name": "frontend",
+      "source": "frontend",
       "build": {
-        "dockerfilePath": "Dockerfile.frontend"
+        "dockerfilePath": "frontend/Dockerfile"
       },
       "env": {
         "API_URL": "https://${{ backend.PUBLIC_URL }}"
