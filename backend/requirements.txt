@@ -1,0 +1,15 @@
+
+fastapi
+uvicorn[standard]
+pydantic>=2
+python-dotenv
+requests
+pandas
+langchain
+litellm
+mlflow
+rouge-score
+bert-score
+sentence-transformers
+streamlit
+streamlit-lottie
