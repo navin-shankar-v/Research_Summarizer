@@ -27,6 +27,6 @@ ENV PORT=8000
 EXPOSE 8000
 
 # IMPORTANT: use $PORT so Render detects it
-CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT}"]
+# CMD is defined in Render dashboard
 
 
