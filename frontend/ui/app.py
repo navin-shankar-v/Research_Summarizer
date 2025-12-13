@@ -10,40 +10,40 @@ st.set_page_config(page_title="Automated Research Summarization", layout="wide")
 
 # ------------------- STYLING -------------------
 st.markdown("""
-    <style>
-    body {
-        background-color: #0f1116;
-        color: #f0f0f5;
-    }
-    .title {
-        font-size: 2.4rem;
-        font-weight: 700;
-        color: #00b4d8;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .subtitle {
-        text-align: center;
-        font-size: 1.1rem;
-        color: #adb5bd;
-        margin-bottom: 2rem;
-    }
-    .result-card {
-        background: rgba(255, 255, 255, 0.05);
-        padding: 1.5rem;
-        border-radius: 1rem;
-        margin-top: 1rem;
-        box-shadow: 0 0 15px rgba(0, 180, 216, 0.2);
-    }
-    .section-title {
-        color: #90e0ef;
-        font-weight: 600;
-        font-size: 1.2rem;
-        border-bottom: 1px solid #00b4d8;
-        margin-top: 1.5rem;
-        margin-bottom: 0.5rem;
-    }
-    </style>
+<style>
+body {
+    background-color: #0f1116;
+    color: #f0f0f5;
+}
+.title {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #00b4d8;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+.subtitle {
+    text-align: center;
+    font-size: 1.1rem;
+    color: #adb5bd;
+    margin-bottom: 2rem;
+}
+.result-card {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    margin-top: 1rem;
+    box-shadow: 0 0 15px rgba(0, 180, 216, 0.2);
+}
+.section-title {
+    color: #90e0ef;
+    font-weight: 600;
+    font-size: 1.2rem;
+    border-bottom: 1px solid #00b4d8;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ------------------- HEADER -------------------
@@ -53,6 +53,7 @@ st.markdown('<div class="subtitle">AI-powered summarizer for extracting insights
 # ------------------- INPUTS -------------------
 topic = st.text_input("Enter your topic", placeholder="e.g., Blockchain, Smart Watches, Federated Learning")
 n_papers = st.slider("Number of papers to include", 3, 12, 5)
+
 
 # ------------------- SUBMIT -------------------
 if st.button("🚀 Generate Summary") and topic:
@@ -78,6 +79,7 @@ if st.button("🚀 Generate Summary") and topic:
             st.stop()
 
         data = resp.json()
+
         summary = data.get("summary", {}) or {}
         scores = data.get("eval", {}) or {}
         papers = data.get("papers", []) or []
@@ -99,7 +101,6 @@ if st.button("🚀 Generate Summary") and topic:
         with tab_summary:
             st.markdown('<div class="result-card">', unsafe_allow_html=True)
 
-            # Evaluation metrics
             st.markdown('<div class="section-title">📊 Evaluation</div>', unsafe_allow_html=True)
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Overall", f"{scores.get('overall', 0):.2f}")
@@ -107,7 +108,6 @@ if st.button("🚀 Generate Summary") and topic:
             c3.metric("Depth", f"{scores.get('depth', 0):.2f}")
             c4.metric("Structure", f"{scores.get('structure', 0):.2f}")
 
-            # Deep summary
             st.markdown('<div class="section-title">📘 Deep Summary</div>', unsafe_allow_html=True)
             for p in summary.get("paragraphs", []):
                 st.markdown(f"- {p}")
@@ -140,7 +140,7 @@ if st.button("🚀 Generate Summary") and topic:
 
             st.markdown('<div class="section-title">📑 Top 5 Papers</div>', unsafe_allow_html=True)
             for paper in summary.get("top5_papers", []):
-                st.markdown(f"🔗 **[{paper.get('title')}]({paper.get('url')})**")
+                st.markdown(f"🔗 **[{paper.get('title','Untitled')}]({paper.get('url','')})**")
 
             st.markdown('<div class="section-title">📚 Retrieved Papers</div>', unsafe_allow_html=True)
             for i, p in enumerate(papers, start=1):
