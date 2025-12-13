@@ -1,0 +1,16 @@
+mlruns/
+__pycache__/
+*.log
+*.md
+*.egg-info
+.env
+.vscode/
+.idea/
+*.sqlite
+*.db
+.DS_Store
+.git/
+.gitignore
+.ui_cache/
+.cache/
+models/

@@ -89,15 +89,13 @@ PAPERS:
             "top5_papers": [],
         }
 
-    # ---------------- JSON PARSING WITH SANITIZATION ----------------
+        # ---------------- JSON PARSING WITH SANITIZATION ----------------
     try:
-        # Fix invalid escape sequences first
+        # Fix invalid escape sequences (like \d, \alpha, etc)
         safe = re.sub(r'\\(?!["\\/bfnrt])', r'\\\\', content)
-
         parsed = json.loads(safe)
 
     except Exception:
-        # secondary: extract any JSON-looking block
         match = re.search(r"\{[\s\S]*\}", content)
         if match:
             safe = re.sub(r'\\(?!["\\/bfnrt])', r'\\\\', match.group(0))
@@ -108,7 +106,6 @@ PAPERS:
         else:
             parsed = {}
 
-    # enforce defaults
     DEFAULT = {
         "paragraphs": ["Summary unavailable."],
         "key_findings": [],
