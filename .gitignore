@@ -10,3 +10,5 @@ mlruns/
 dist/
 build/
 .pytest_cache/
+mlruns/
+models/
