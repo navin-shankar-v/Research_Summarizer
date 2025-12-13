@@ -89,21 +89,26 @@ PAPERS:
             "top5_papers": [],
         }
 
-    # Try parsing JSON
+    # ---------------- JSON PARSING WITH SANITIZATION ----------------
     try:
-        parsed = json.loads(content)
-    except:
-        # fallback recovery for malformed JSON
+        # Fix invalid escape sequences first
+        safe = re.sub(r'\\(?!["\\/bfnrt])', r'\\\\', content)
+
+        parsed = json.loads(safe)
+
+    except Exception:
+        # secondary: extract any JSON-looking block
         match = re.search(r"\{[\s\S]*\}", content)
         if match:
+            safe = re.sub(r'\\(?!["\\/bfnrt])', r'\\\\', match.group(0))
             try:
-                parsed = json.loads(match.group(0))
+                parsed = json.loads(safe)
             except:
                 parsed = {}
         else:
             parsed = {}
 
-    # enforce defaults so UI never breaks
+    # enforce defaults
     DEFAULT = {
         "paragraphs": ["Summary unavailable."],
         "key_findings": [],
@@ -114,7 +119,6 @@ PAPERS:
         "open_problems": [],
         "top5_papers": [],
     }
-
     for k, v in DEFAULT.items():
         if k not in parsed or not isinstance(parsed[k], list):
             parsed[k] = v
