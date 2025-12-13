@@ -4,29 +4,6 @@ import re
 import concurrent.futures
 from agents._llm import chat_completion
 
-
-# -----------------------------------------------------------
-# SAFE JSON HELPERS
-# -----------------------------------------------------------
-
-def safe_json_extract(text: str):
-    """Extract JSON object safely from LLM output."""
-    try:
-        return json.loads(text)
-    except:
-        pass
-
-    # Try regex recovery
-    match = re.search(r"\{[\s\S]*\}", text)
-    if match:
-        try:
-            return json.loads(match.group(0))
-        except:
-            return {}
-
-    return {}
-
-
 DEFAULT = {
     "paragraphs": ["Summary unavailable."],
     "key_findings": [],
@@ -38,89 +15,115 @@ DEFAULT = {
     "top5_papers": [],
 }
 
+def safe_load_json(text: str):
+    """Attempts multiple parses until valid JSON is extracted."""
+    try:
+        return json.loads(text)
+    except:
+        pass
 
-def normalize_output(parsed):
-    """Ensure all keys exist and are of correct type."""
+    match = re.search(r"\{[\s\S]*\}", text)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except:
+            return {}
+
+    return {}
+
+def ensure_structure(parsed: dict):
+    """Guarantee all required fields exist and are lists."""
     clean = {}
-    for key, default_val in DEFAULT.items():
-        val = parsed.get(key)
-        clean[key] = val if isinstance(val, list) else default_val
+    for k, default in DEFAULT.items():
+        v = parsed.get(k)
+        clean[k] = v if isinstance(v, list) else default
     return clean
 
 
-# -----------------------------------------------------------
-# MAIN SUMMARY FUNCTION
-# -----------------------------------------------------------
+def build_rag_context(papers):
+    """Create a compact digest of each paper (RAG-style context)."""
+    chunks = []
+    for i, p in enumerate(papers):
+        abstract = p.get("abstract", "").strip()
+        title = p.get("title", "").strip()
+        year = p.get("year", "")
+
+        # Mini-embedding style compression
+        chunk = f"""
+[Paper {i+1}]
+TITLE: {title}
+YEAR: {year}
+ABSTRACT SUMMARY: {abstract[:600]}...
+KEYWORDS: {", ".join(p.get("keywords", [])) if p.get("keywords") else ""}
+"""
+        chunks.append(chunk)
+
+    return "\n".join(chunks)
+
 
 def make_summary(papers):
-    """
-    Generate deep structured summary over the retrieved papers.
-    ALWAYS returns complete dict → frontend never breaks.
-    """
+    """Generate structured JSON summary with strong fallback."""
+    
+    if not papers:
+        return DEFAULT
 
-    # Build multi-paper context
-    chunks = []
-    for i, p in enumerate(papers[:10], start=1):
-        chunks.append(
-            f"[{i}] {p.get('title','Untitled')} ({p.get('year','')})\n"
-            f"AUTHORS: {p.get('authors','N/A')}\n"
-            f"ABSTRACT: {(p.get('abstract','') or '').strip()}\n"
-            f"URL: {p.get('url','')}"
-        )
-    context = "\n\n".join(chunks) if chunks else "No papers found."
+    rag_context = build_rag_context(papers)
 
-    # LLM Prompt
     messages = [
         {
             "role": "system",
             "content": (
                 "You are an expert scientific reviewer. "
-                "Produce deep, accurate, multi-paper literature summaries. "
-                "ABSOLUTELY NO TEXT OUTSIDE JSON."
-            )
+                "You must output ONLY valid JSON following the exact schema. "
+                "No explanations. No prose outside JSON."
+            ),
         },
         {
             "role": "user",
             "content": f"""
-Summarize ALL papers provided. Produce a structured literature review.
+You are given processed paper digests:
 
-Return ONLY valid JSON:
+{rag_context}
+
+Write a **deep structured literature review across ALL papers**.
+
+Follow this schema EXACTLY:
 
 {{
-  "paragraphs": [],
-  "key_findings": [],
-  "limitations": [],
-  "future_work": [],
-  "methods": [],
-  "whats_new": [],
-  "open_problems": [],
-  "top5_papers": []
+  "paragraphs": ["..."],
+  "key_findings": ["..."],
+  "limitations": ["..."],
+  "future_work": ["..."],
+  "methods": ["..."],
+  "whats_new": ["..."],
+  "open_problems": ["..."],
+  "top5_papers": [
+      {{ "title": "...", "url": "..." }}
+  ]
 }}
 
-Rules:
-- Write 2–4 paragraphs (technical, dense, coherent).
-- Extract REAL findings from the abstracts.
-- Do NOT hallucinate unavailable information.
-- Leave sections empty if papers do not mention them.
-- For top5_papers: return objects like:
-    {{ "title": "...", "url": "..." }}
-
-PAPERS:
-{context}
-""".strip()
-        }
+RULES:
+- OUTPUT ONLY JSON.
+- NO text outside the JSON object.
+- Never return empty arrays. If unknown, infer best possible from abstracts.
+""",
+        },
     ]
 
-    # Execute with timeout
     try:
         with concurrent.futures.ThreadPoolExecutor() as ex:
             future = ex.submit(chat_completion, messages)
-            response = future.result(timeout=120)
-        raw = response["choices"][0]["message"]["content"]
+            out = future.result(timeout=120)
+
+        content = out["choices"][0]["message"]["content"]
 
     except Exception as e:
-        return normalize_output({"paragraphs": [f"Model error: {e}"]})
+        return DEFAULT
 
-    # Parse JSON safely
-    parsed = safe_json_extract(raw)
-    return normalize_output(parsed)
+    # --- JSON PARSE ---
+    parsed = safe_load_json(content)
+
+    # --- Backend ALWAYS returns structured output ---
+    cleaned = ensure_structure(parsed)
+
+    return cleaned
