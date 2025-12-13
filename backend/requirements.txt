@@ -1,15 +1,28 @@
-
 fastapi
 uvicorn[standard]
 pydantic>=2
 python-dotenv
 requests
 pandas
+
+# LangChain ecosystem (safe)
 langchain
+langchain-core
+langgraph
+langgraph-checkpoint
+langgraph-prebuilt
+langsmith
+
 litellm
-mlflow
+
+# Evaluation libraries
 rouge-score
-bert-score
-sentence-transformers
-streamlit
-streamlit-lottie
+bert-score==0.3.13  # this works WITHOUT torch
+sentence-transformers==2.2.2  # safe CPU version, NO cuda
+
+# Only needed for your evaluator
+scikit-learn
+numpy
+scipy
+
+# You DO NOT need streamlit in backend
