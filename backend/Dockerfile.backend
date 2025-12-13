@@ -1,7 +1,6 @@
 # ============================
-#  FASTAPI BACKEND CONTAINER
+# FASTAPI BACKEND (Slim)
 # ============================
-
 FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -9,26 +8,30 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install OS dependencies
+# Install only lightweight system packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
+# Copy requirement list
 COPY requirements.txt .
+
+# REMOVE heavy libraries automatically (Torch, Transformers, CUDA)
+RUN sed -i '/torch/d' requirements.txt && \
+    sed -i '/transformers/d' requirements.txt && \
+    sed -i '/sentence-transformers/d' requirements.txt && \
+    sed -i '/accelerate/d' requirements.txt && \
+    sed -i '/nvidia-/d' requirements.txt
+
+# Install deps
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
 COPY api ./api
 COPY agents ./agents
-COPY config ./config
 COPY retrieval ./retrieval
+COPY config ./config
 
-# EXPOSE BACKEND PORT
 EXPOSE 8000
 
-# Render expects the container to run on PORT
-ENV PORT=8000
-
-# Start FastAPI
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

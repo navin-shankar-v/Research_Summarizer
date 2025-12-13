@@ -1,7 +1,6 @@
 # ============================
-#   STREAMLIT FRONTEND
+# STREAMLIT FRONTEND (Slim)
 # ============================
-
 FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -9,14 +8,24 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install Python deps
+# Only essential system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
+
+# Remove unnecessary heavy deps (Torch, HF models)
+RUN sed -i '/torch/d' requirements.txt && \
+    sed -i '/transformers/d' requirements.txt && \
+    sed -i '/sentence-transformers/d' requirements.txt && \
+    sed -i '/accelerate/d' requirements.txt && \
+    sed -i '/nvidia-/d' requirements.txt
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy UI
 COPY ui ./ui
 
-# Streamlit config
 ENV STREAMLIT_SERVER_PORT=10000
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
