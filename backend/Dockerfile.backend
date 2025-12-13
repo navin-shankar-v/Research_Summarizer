@@ -9,23 +9,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy backend directory from repo root
+# Build context is root (.), so we need backend/ prefix
 COPY backend/requirements.txt /app/requirements.txt
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend modules
+# Copy application directories with backend/ prefix
 COPY backend/api /app/api
 COPY backend/agents /app/agents
 COPY backend/config /app/config
 COPY backend/retrieval /app/retrieval
 COPY backend/prompts /app/prompts
 
-# Ensure Python sees these as packages
+# Ensure __init__.py files exist
 RUN touch /app/api/__init__.py \
     && touch /app/agents/__init__.py \
     && touch /app/retrieval/__init__.py \
-    && touch /app/prompts/__init__.py
+    && touch /app/prompts/__init__.py \
+    && touch /app/config/__init__.py
 
 ENV PORT=8000
 EXPOSE 8000
