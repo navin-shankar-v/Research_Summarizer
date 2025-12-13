@@ -1,21 +1,41 @@
-
-from fastapi import APIRouter, HTTPException
-from api.schemas import SummarizeReq, SummarizeResp
-from agents.planner import plan_query
-from agents.retriever import fetch_papers
+from fastapi import APIRouter
+from pydantic import BaseModel
 from agents.summarizer import make_summary
 from agents.evaluator import evaluate_summary
+import logging, json
 
 router = APIRouter()
 
-@router.post("/summarize", response_model=SummarizeResp)
-def summarize(req: SummarizeReq):
-    if not req.query.strip():
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+class Query(BaseModel):
+    query: str
+    n_papers: int = 5
+    sources: list = ["arxiv"]
 
-    plan = plan_query(req.query, req.date_range)
-    papers = fetch_papers(plan, n=req.n_papers, sources=req.sources)
+@router.post("/summarize")
+def summarize(q: Query):
+    logging.basicConfig(level=logging.INFO)
+
+    # TEMP MARKER
+    logging.info("=== /summarize endpoint called ===")
+
+    # Retrieve papers (your existing retrieval pipeline)
+    from retrieval.main import retrieve_papers
+    papers = retrieve_papers(q.query, q.n_papers)
+
+    logging.info("PAPERS RETRIEVED: " + str(len(papers)))
+
     summary = make_summary(papers)
-    scores = evaluate_summary(summary, papers)
 
-    return {"plan": plan, "papers": papers, "summary": summary, "eval": scores}
+    logging.info("SUMMARY RAW:")
+    logging.info(json.dumps(summary, indent=2))
+
+    eval_scores = evaluate_summary(summary, papers)
+
+    logging.info("EVAL RAW:")
+    logging.info(json.dumps(eval_scores, indent=2))
+
+    return {
+        "summary": summary,
+        "eval": eval_scores,
+        "papers": papers,
+    }
