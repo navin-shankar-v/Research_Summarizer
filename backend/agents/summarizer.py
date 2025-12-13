@@ -8,7 +8,7 @@ from agents._llm import chat_completion
 def make_summary(papers):
     """
     Generate a deep, structured summary over all papers.
-    Returns a dict matching SummaryOut.
+    Returns a dict with guaranteed sections so the frontend never breaks.
     """
 
     # Build paper context
@@ -26,42 +26,32 @@ def make_summary(papers):
 
     # LLM prompt
     messages = [
-         {
-        "role": "system",
-        "content": (
-            "You are an expert literature review synthesizer trained to produce "
-            "structured meta-analysis across multiple papers. "
-            "Your output MUST be valid JSON. No explanations."
-        ),
-    },
-    {
-        "role": "user",
-        "content": f"""
-You are given multiple research papers (labeled [#N]).
+        {
+            "role": "system",
+            "content": (
+                "You are an expert scientific reviewer. "
+                "You write deep, technically precise summaries."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"""
+You are given several research papers (each labeled [#N]).
 
-Produce a **deep, structured literature review** across ALL papers.
+Write a **deep, structured literature summary** across ALL papers.
 
-Your response MUST follow this exact JSON structure:
+Return ONLY valid JSON with the structure:
 
 {{
-  "paragraphs": ["3–5 deep synthesis paragraphs"],
-  "key_findings": ["5–8 items"],
-  "limitations": ["4–6 items"],
-  "future_work": ["4–6 items"],
-  "methods": ["3–6 items"],
-  "whats_new": ["3–5 innovations"],
-  "open_problems": ["3–5 research gaps"],
-  "top5_papers": [
-        {{"title": "...", "url": "..."}}
-  ]
+  "paragraphs": [],
+  "key_findings": [],
+  "limitations": [],
+  "future_work": [],
+  "methods": [],
+  "whats_new": [],
+  "open_problems": [],
+  "top5_papers": []
 }}
-
-RULES:
-- ALWAYS return valid JSON.
-- NEVER add extra commentary.
-- NEVER escape JSON inside a string.
-- Do not include markdown.
-- If unsure, produce your best scientific estimate.
 
 PAPERS:
 {context}
@@ -74,7 +64,6 @@ PAPERS:
         with concurrent.futures.ThreadPoolExecutor() as ex:
             future = ex.submit(chat_completion, messages)
             out = future.result(timeout=120)
-
         content = out["choices"][0]["message"]["content"]
 
     except Exception as e:
@@ -89,23 +78,20 @@ PAPERS:
             "top5_papers": [],
         }
 
-        # ---------------- JSON PARSING WITH SANITIZATION ----------------
+    # ---------- SAFE JSON RECOVERY ----------
     try:
-        # Fix invalid escape sequences (like \d, \alpha, etc)
-        safe = re.sub(r'\\(?!["\\/bfnrt])', r'\\\\', content)
-        parsed = json.loads(safe)
-
+        parsed = json.loads(content)
     except Exception:
         match = re.search(r"\{[\s\S]*\}", content)
         if match:
-            safe = re.sub(r'\\(?!["\\/bfnrt])', r'\\\\', match.group(0))
             try:
-                parsed = json.loads(safe)
+                parsed = json.loads(match.group(0))
             except:
                 parsed = {}
         else:
             parsed = {}
 
+    # Ensure all sections always exist
     DEFAULT = {
         "paragraphs": ["Summary unavailable."],
         "key_findings": [],
@@ -116,7 +102,10 @@ PAPERS:
         "open_problems": [],
         "top5_papers": [],
     }
-    for k, v in DEFAULT.items():
-        if k not in parsed or not isinstance(parsed[k], list):
-            parsed[k] = v
 
+    clean = {}
+    for key, default_val in DEFAULT.items():
+        v = parsed.get(key)
+        clean[key] = v if isinstance(v, list) else default_val
+
+    return clean

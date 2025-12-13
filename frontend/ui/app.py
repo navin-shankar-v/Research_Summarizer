@@ -10,53 +10,40 @@ st.set_page_config(page_title="Automated Research Summarization", layout="wide")
 
 # ------------------- STYLING -------------------
 st.markdown("""
-<style>
-body {
-    background-color: #0f1116;
-    color: #f0f0f5;
-}
-.title {
-    font-size: 2.4rem;
-    font-weight: 700;
-    color: #00b4d8;
-    text-align: center;
-    margin-bottom: 1rem;
-}
-.subtitle {
-    text-align: center;
-    font-size: 1.1rem;
-    color: #adb5bd;
-    margin-bottom: 2rem;
-}
-.stButton>button {
-    background-color: #00b4d8;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    padding: 0.6rem 1.2rem;
-    transition: 0.3s;
-}
-.stButton>button:hover {
-    background-color: #0096c7;
-    transform: scale(1.05);
-}
-.result-card {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 1.5rem;
-    border-radius: 1rem;
-    margin-top: 1rem;
-    box-shadow: 0 0 15px rgba(0, 180, 216, 0.2);
-}
-.section-title {
-    color: #90e0ef;
-    font-weight: 600;
-    font-size: 1.2rem;
-    border-bottom: 1px solid #00b4d8;
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-}
-</style>
+    <style>
+    body {
+        background-color: #0f1116;
+        color: #f0f0f5;
+    }
+    .title {
+        font-size: 2.4rem;
+        font-weight: 700;
+        color: #00b4d8;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .subtitle {
+        text-align: center;
+        font-size: 1.1rem;
+        color: #adb5bd;
+        margin-bottom: 2rem;
+    }
+    .result-card {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1.5rem;
+        border-radius: 1rem;
+        margin-top: 1rem;
+        box-shadow: 0 0 15px rgba(0, 180, 216, 0.2);
+    }
+    .section-title {
+        color: #90e0ef;
+        font-weight: 600;
+        font-size: 1.2rem;
+        border-bottom: 1px solid #00b4d8;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
 # ------------------- HEADER -------------------
@@ -70,7 +57,6 @@ n_papers = st.slider("Number of papers to include", 3, 12, 5)
 # ------------------- SUBMIT -------------------
 if st.button("🚀 Generate Summary") and topic:
 
-    # ---- Progress UI ----
     progress = st.progress(0)
     step_text = st.empty()
 
@@ -78,7 +64,6 @@ if st.button("🚀 Generate Summary") and topic:
     progress.progress(10)
 
     try:
-        # ---- API CALL ----
         resp = requests.post(
             api_url,
             json={"query": topic, "n_papers": n_papers, "sources": ["arxiv"]},
@@ -93,13 +78,12 @@ if st.button("🚀 Generate Summary") and topic:
             st.stop()
 
         data = resp.json()
+        summary = data.get("summary", {}) or {}
+        scores = data.get("eval", {}) or {}
+        papers = data.get("papers", []) or []
 
         step_text.write("📊 Evaluating summary quality...")
         progress.progress(70)
-
-        summary = data.get("summary", {}) or {}
-        scores = data.get("eval", {}) or {}
-        papers = data.get("papers", []) or {}
 
         step_text.write("🎨 Rendering UI...")
         progress.progress(100)
@@ -123,7 +107,7 @@ if st.button("🚀 Generate Summary") and topic:
             c3.metric("Depth", f"{scores.get('depth', 0):.2f}")
             c4.metric("Structure", f"{scores.get('structure', 0):.2f}")
 
-            # Deep paragraphs
+            # Deep summary
             st.markdown('<div class="section-title">📘 Deep Summary</div>', unsafe_allow_html=True)
             for p in summary.get("paragraphs", []):
                 st.markdown(f"- {p}")
@@ -134,7 +118,7 @@ if st.button("🚀 Generate Summary") and topic:
         with tab_details:
             st.markdown('<div class="result-card">', unsafe_allow_html=True)
 
-            mapping = {
+            sections = {
                 "🔎 Key Findings": "key_findings",
                 "⚠️ Limitations": "limitations",
                 "🚀 Future Work": "future_work",
@@ -143,8 +127,8 @@ if st.button("🚀 Generate Summary") and topic:
                 "🧩 Open Problems": "open_problems",
             }
 
-            for title, key in mapping.items():
-                st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+            for label, key in sections.items():
+                st.markdown(f'<div class="section-title">{label}</div>', unsafe_allow_html=True)
                 for item in summary.get(key, []):
                     st.markdown(f"- {item}")
 
@@ -179,6 +163,6 @@ else:
 st.markdown("""
 <hr style="margin-top:3rem; border: 0.5px solid #00b4d8; opacity:0.2;">
 <p style="text-align:center; font-size:0.9rem; color:#adb5bd;">
-Built with ❤️ using Streamlit & FastAPI | Powered by Ollama / GPT | © 2025 Navinshankar G.V.
+Built with ❤️ using Streamlit & FastAPI | © 2025 Navinshankar G.V.
 </p>
 """, unsafe_allow_html=True)
