@@ -1,66 +1,70 @@
 # agents/evaluator.py
-import math
-from typing import Dict, List
 
+import numpy as np
+from rouge_score import rouge_scorer
+from bert_score import score as bert_score
 
-def _summary_text(summary: Dict) -> str:
-    parts = []
-    for p in summary.get("paragraphs", []):
-        parts.append(p)
-    for sec in ("key_findings", "limitations", "future_work", "methods", "whats_new", "open_problems"):
-        vals = summary.get(sec) or []
-        if isinstance(vals, list):
-            parts.extend(vals)
-    return " ".join(parts).lower()
-
-
-def _token_count(text: str) -> int:
-    return len(text.split())
-
-
-def evaluate_summary(summary: Dict, papers: List[Dict]) -> Dict[str, float]:
+def evaluate_summary(summary, papers):
     """
-    Simple, interpretable evaluation metrics for a summary.
-
-    - coverage: fraction of papers whose title tokens appear in the summary
-    - depth: scaled length of the paragraphs
-    - structure: how many structured sections are non-empty
-    - overall: weighted combination
+    Computes:
+    - ROUGE-1
+    - ROUGE-L
+    - BERTScore (F1)
+    Produces normalized metrics for UI.
     """
-    text = _summary_text(summary)
 
-    # 1) coverage
-    if papers:
-        hits = 0
-        for p in papers:
-            title = (p.get("title") or "").lower()
-            tokens = [t for t in title.split() if len(t) > 4][:2]
-            if tokens and all(tok in text for tok in tokens):
-                hits += 1
-        coverage = hits / len(papers)
-    else:
-        coverage = 0.0
+    # Combine model-generated paragraphs into text
+    summary_text = " ".join(summary.get("paragraphs", []))
+    if not summary_text.strip():
+        return {"overall": 0, "coverage": 0, "depth": 0, "structure": 0}
 
-    # 2) depth (based on number of tokens in main paragraphs)
-    par_text = " ".join(summary.get("paragraphs", []))
-    par_tokens = _token_count(par_text)
-    # normalize with a log curve; ~800 tokens ~ 1.0
-    depth = min(1.0, math.log1p(par_tokens) / math.log1p(800))
+    # Use abstracts as references
+    references = [
+        p.get("abstract", "") for p in papers
+        if p.get("abstract")
+    ]
 
-    # 3) structure (how many sections filled)
+    if not references:
+        references = [""]  # avoid errors
+
+    # ------------------ ROUGE ------------------
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rougeL"], use_stemmer=True)
+    rouge1_scores, rougeL_scores = [], []
+
+    for ref in references:
+        r = scorer.score(ref, summary_text)
+        rouge1_scores.append(r["rouge1"].fmeasure)
+        rougeL_scores.append(r["rougeL"].fmeasure)
+
+    rouge1 = float(np.mean(rouge1_scores))
+    rougeL = float(np.mean(rougeL_scores))
+
+    # ------------------ BERTScore ------------------
+    try:
+        _, _, F1 = bert_score(
+            [summary_text] * len(references),
+            references,
+            lang="en",
+            verbose=False
+        )
+        bert_f1 = float(F1.mean())
+    except Exception:
+        bert_f1 = 0.0
+
+    # ------------------ Structure Completeness ------------------
     sections = ["key_findings", "limitations", "future_work", "methods", "whats_new", "open_problems"]
-    filled = 0
-    for s in sections:
-        val = summary.get(s)
-        if isinstance(val, list) and len(val) > 0:
-            filled += 1
-    structure = filled / len(sections) if sections else 0.0
+    structure = sum(len(summary.get(s, [])) > 0 for s in sections) / len(sections)
 
-    overall = 0.4 * coverage + 0.3 * depth + 0.3 * structure
+    # ------------------ Overall ------------------
+    overall = (
+        0.35 * rouge1 +
+        0.35 * bert_f1 +
+        0.30 * structure
+    )
 
     return {
-        "coverage": round(coverage, 3),
-        "depth": round(depth, 3),
+        "coverage": round(rouge1, 3),
+        "depth": round(bert_f1, 3),
         "structure": round(structure, 3),
         "overall": round(overall, 3),
     }

@@ -26,46 +26,42 @@ def make_summary(papers):
 
     # LLM prompt
     messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are an expert scientific reviewer. "
-                "You write deep, technically precise summaries for graduate-level readers."
-            ),
-        },
-        {
-            "role": "user",
-            "content": f"""
-You are given several research papers (each labeled [#N]).
+         {
+        "role": "system",
+        "content": (
+            "You are an expert literature review synthesizer trained to produce "
+            "structured meta-analysis across multiple papers. "
+            "Your output MUST be valid JSON. No explanations."
+        ),
+    },
+    {
+        "role": "user",
+        "content": f"""
+You are given multiple research papers (labeled [#N]).
 
-Write a **deep, structured literature summary** across ALL papers.
+Produce a **deep, structured literature review** across ALL papers.
 
-1. First, write 3–5 dense paragraphs that:
-   - synthesize the main ideas,
-   - compare methods,
-   - highlight trade-offs and trends.
-
-2. Then extract:
-   - key_findings: 5–8 technical findings.
-   - limitations: 4–6 methodological or conceptual gaps.
-   - future_work: 4–6 important next steps.
-   - methods: 3–6 study/algorithm patterns.
-   - whats_new: 3–5 novel contributions.
-   - open_problems: 3–5 unresolved research questions.
-   - top5_papers: title + url.
-
-Return **ONLY valid JSON** with this structure:
+Your response MUST follow this exact JSON structure:
 
 {{
-  "paragraphs": [],
-  "key_findings": [],
-  "limitations": [],
-  "future_work": [],
-  "methods": [],
-  "whats_new": [],
-  "open_problems": [],
-  "top5_papers": []
+  "paragraphs": ["3–5 deep synthesis paragraphs"],
+  "key_findings": ["5–8 items"],
+  "limitations": ["4–6 items"],
+  "future_work": ["4–6 items"],
+  "methods": ["3–6 items"],
+  "whats_new": ["3–5 innovations"],
+  "open_problems": ["3–5 research gaps"],
+  "top5_papers": [
+        {{"title": "...", "url": "..."}}
+  ]
 }}
+
+RULES:
+- ALWAYS return valid JSON.
+- NEVER add extra commentary.
+- NEVER escape JSON inside a string.
+- Do not include markdown.
+- If unsure, produce your best scientific estimate.
 
 PAPERS:
 {context}
@@ -96,24 +92,30 @@ PAPERS:
     # Try parsing JSON
     try:
         parsed = json.loads(content)
-        if isinstance(parsed, list):
-            parsed = parsed[0]
     except:
-        match = re.search(r"\{.*\}", content, re.S)
-        parsed = json.loads(match.group(0)) if match else {}
+        # fallback recovery for malformed JSON
+        match = re.search(r"\{[\s\S]*\}", content)
+        if match:
+            try:
+                parsed = json.loads(match.group(0))
+            except:
+                parsed = {}
+        else:
+            parsed = {}
 
-    # Safe extraction helper
-    def safe_list(key):
-        v = parsed.get(key)
-        return v if isinstance(v, list) else []
-
-    return {
-        "paragraphs": safe_list("paragraphs") or ["Summary unavailable."],
-        "key_findings": safe_list("key_findings"),
-        "limitations": safe_list("limitations"),
-        "future_work": safe_list("future_work"),
-        "methods": safe_list("methods"),
-        "whats_new": safe_list("whats_new"),
-        "open_problems": safe_list("open_problems"),
-        "top5_papers": parsed.get("top5_papers") or [],
+    # enforce defaults so UI never breaks
+    DEFAULT = {
+        "paragraphs": ["Summary unavailable."],
+        "key_findings": [],
+        "limitations": [],
+        "future_work": [],
+        "methods": [],
+        "whats_new": [],
+        "open_problems": [],
+        "top5_papers": [],
     }
+
+    for k, v in DEFAULT.items():
+        if k not in parsed or not isinstance(parsed[k], list):
+            parsed[k] = v
+
