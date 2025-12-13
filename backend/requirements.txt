@@ -16,8 +16,6 @@ langsmith
 litellm
 
 # Evaluation libraries
-rouge-score
-bert-score==0.3.13  # this works WITHOUT torch
 sentence-transformers==2.2.2  # safe CPU version, NO cuda
 
 # Only needed for your evaluator
