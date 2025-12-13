@@ -1,37 +1,30 @@
-# ============================
-# FASTAPI BACKEND (Slim)
-# ============================
 FROM python:3.10-slim
+
+WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-WORKDIR /app
-
-# Install only lightweight system packages
+# Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirement list
+# Install Python deps
 COPY requirements.txt .
-
-# REMOVE heavy libraries automatically (Torch, Transformers, CUDA)
-RUN sed -i '/torch/d' requirements.txt && \
-    sed -i '/transformers/d' requirements.txt && \
-    sed -i '/sentence-transformers/d' requirements.txt && \
-    sed -i '/accelerate/d' requirements.txt && \
-    sed -i '/nvidia-/d' requirements.txt
-
-# Install deps
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
 COPY api ./api
 COPY agents ./agents
-COPY retrieval ./retrieval
 COPY config ./config
+COPY retrieval ./retrieval
 
+# Render automatically assigns $PORT
+ENV PORT=8000
+
+# EXPOSE must match the internal port your app listens on
 EXPOSE 8000
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# IMPORTANT: use $PORT so Render detects it
+CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT}"]
