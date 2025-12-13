@@ -9,18 +9,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Build context is root (.), so we need backend/ prefix
+# Dockerfile is at backend/Dockerfile.backend
+# Context is . (root), so we need backend/ prefix
 COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application directories with backend/ prefix
-COPY backend/api /app/api
-COPY backend/agents /app/agents
-COPY backend/config /app/config
-COPY backend/retrieval /app/retrieval
-COPY backend/prompts /app/prompts
+# Copy all application directories with backend/ prefix
+COPY api ./api
+COPY agents ./agents
+COPY config ./config
+COPY retrieval ./retrieval
+COPY prompts ./prompts
 
-# Ensure __init__.py files exist
+# Ensure __init__.py files exist in all modules
 RUN touch /app/api/__init__.py \
     && touch /app/agents/__init__.py \
     && touch /app/retrieval/__init__.py \
